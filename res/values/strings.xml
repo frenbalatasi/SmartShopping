@@ -12,12 +12,13 @@
     <string name="text_disable">Disable</string>
     
     <string name="text_view_paired">Paired Devices</string>
-    <string name="text_scan_devices">Scan Devices</string>
-    <string name="text_stop_scan">Scan Devices</string>
+    <string name="text_connect">Connect</string>
+    <string name="text_stop_scan">Connect</string>
     
     <string name="text_list_paired_devices">Paired Devices</string>
     <string name="text_list_devices">List of Devices</string>
     
     <string name="text_pair">Pair</string>
+    <string name="text_cancel">Cancel</string>
     
 </resources>

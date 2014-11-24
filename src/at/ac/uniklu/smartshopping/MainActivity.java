@@ -1,8 +1,10 @@
 package at.ac.uniklu.smartshopping;
 
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Set;
+import java.util.UUID;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -23,6 +25,7 @@ import android.widget.Toast;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothSocket;
 
 /**
  * Main activity.
@@ -32,20 +35,27 @@ import android.bluetooth.BluetoothDevice;
  */
 public class MainActivity extends Activity {
 	private TextView mStatusTv;
-	private Button mActivateBtn;
+//	private Button mActivateBtn;
 	private Button mPairedBtn;
-	private Button mScanBtn;
+	private Button mConnectBtn;
+	private Button mCancelBtn;
 	
 	private ProgressDialog mProgressDlg;
+	private ProgressDialog firstScreen;
 	
 	private ArrayList<BluetoothDevice> mDeviceList = new ArrayList<BluetoothDevice>();
 	
 	private BluetoothAdapter mBluetoothAdapter;
+	private BluetoothSocket socket;
+	private UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
 	
 //	private String serverName = "Arda's iPhone";
 //	private String serverMacAddress = "80:EA:96:08:44:20";
 	
-	private String serverName = "raspberrypi-1";
+//	private String serverName = "Serjinator";
+//	private String serverMacAddress = "98:D6:F7:B2:3E:E9";
+	
+	private String serverName = "raspberrypi-0";
 	private String serverMacAddress = "00:1B:DC:06:B5:B3";
 	
 	@Override
@@ -55,15 +65,19 @@ public class MainActivity extends Activity {
 		setContentView(R.layout.activity_main);
 		
 		mStatusTv 			= (TextView) findViewById(R.id.tv_status);
-		mActivateBtn 		= (Button) findViewById(R.id.btn_enable);
+//		mActivateBtn 		= (Button) findViewById(R.id.btn_enable);
 		mPairedBtn 			= (Button) findViewById(R.id.btn_view_paired);
-		mScanBtn 			= (Button) findViewById(R.id.btn_scan);
+		mConnectBtn 		= (Button) findViewById(R.id.btn_connect);
+		mCancelBtn          = (Button) findViewById(R.id.btn_cancel);
 		
 		mBluetoothAdapter	= BluetoothAdapter.getDefaultAdapter();
+		mBluetoothAdapter.enable();
 		
 		mProgressDlg 		= new ProgressDialog(this);
+		firstScreen			= new ProgressDialog(this);
 		
-		mProgressDlg.setMessage("Scanning...");
+		
+		mProgressDlg.setMessage("Connecting...");
 		mProgressDlg.setCancelable(false);
 		mProgressDlg.setButton(DialogInterface.BUTTON_NEGATIVE, "Cancel", new DialogInterface.OnClickListener() {
 		    @Override
@@ -73,6 +87,10 @@ public class MainActivity extends Activity {
 		        mBluetoothAdapter.cancelDiscovery();
 		    }
 		});
+		
+		firstScreen.setMessage("Loading...");
+		firstScreen.setCancelable(false);
+		
 		
 		if (mBluetoothAdapter == null) {
 			showUnsupported();
@@ -98,27 +116,42 @@ public class MainActivity extends Activity {
 				}
 			});
 			
-			mScanBtn.setOnClickListener(new View.OnClickListener() {				
+			mConnectBtn.setOnClickListener(new View.OnClickListener() {				
 				@Override
 				public void onClick(View arg0) {
 					mBluetoothAdapter.startDiscovery();
 				}
 			});
 			
-			mActivateBtn.setOnClickListener(new View.OnClickListener() {				
+			mCancelBtn.setOnClickListener(new View.OnClickListener() {				
 				@Override
 				public void onClick(View v) {
-					if (mBluetoothAdapter.isEnabled()) {
-						mBluetoothAdapter.disable();
-						
-						showDisabled();
-					} else {
-						Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-						
-					    startActivityForResult(intent, 1000);
+					try {
+						socket.close();
+						mConnectBtn.setEnabled(true);
+						mCancelBtn.setEnabled(false);
+						showToast("Connection terminated!");
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
 					}
 				}
 			});
+			
+//			mActivateBtn.setOnClickListener(new View.OnClickListener() {				
+//				@Override
+//				public void onClick(View v) {
+//					if (mBluetoothAdapter.isEnabled()) {
+//						mBluetoothAdapter.disable();
+//						
+//						showDisabled();
+//					} else {
+//						Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+//						
+//					    startActivityForResult(intent, 1000);
+//					}
+//				}
+//			});
 			
 			if (mBluetoothAdapter.isEnabled()) {
 				showEnabled();
@@ -135,6 +168,7 @@ public class MainActivity extends Activity {
 		filter.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
 		
 		registerReceiver(mReceiver, filter);
+			
 	}
 	
 	@Override
@@ -145,46 +179,60 @@ public class MainActivity extends Activity {
 			}
 		}
 		
+		mBluetoothAdapter.disable();
 		super.onPause();
 	}
 	
 	@Override
 	public void onDestroy() {
 		unregisterReceiver(mReceiver);
-		
+		mBluetoothAdapter.disable();
 		super.onDestroy();
 	}
 	
+	@Override
+	public void onStop(){
+		mBluetoothAdapter.disable();
+		super.onRestart();
+	}
+	
+	@Override
+	public void onRestart(){
+		mBluetoothAdapter.enable();
+		super.onRestart();
+	}
+	
 	private void showEnabled() {
-		mStatusTv.setText("Bluetooth is On");
+		mStatusTv.setText("Bluetooth ON");
 		mStatusTv.setTextColor(Color.BLUE);
 		
-		mActivateBtn.setText("Disable");		
-		mActivateBtn.setEnabled(true);
+//		mActivateBtn.setText("Disable");		
+//		mActivateBtn.setEnabled(true);
 		
 		mPairedBtn.setEnabled(true);
-		mScanBtn.setEnabled(true);
+		mConnectBtn.setEnabled(true);
 	}
 	
 	private void showDisabled() {
-		mStatusTv.setText("Bluetooth is Off");
+		mStatusTv.setText("Bluetooth OFF");
 		mStatusTv.setTextColor(Color.RED);
 		
-		mActivateBtn.setText("Enable");
-		mActivateBtn.setEnabled(true);
+//		mActivateBtn.setText("Enable");
+//		mActivateBtn.setEnabled(true);
 		
 		mPairedBtn.setEnabled(false);
-		mScanBtn.setEnabled(false);
+		mConnectBtn.setEnabled(false);
+		mCancelBtn.setEnabled(false);
 	}
 	
 	private void showUnsupported() {
 		mStatusTv.setText("Bluetooth is unsupported by this device");
 		
-		mActivateBtn.setText("Enable");
-		mActivateBtn.setEnabled(false);
+//		mActivateBtn.setText("Enable");
+//		mActivateBtn.setEnabled(false);
 		
 		mPairedBtn.setEnabled(false);
-		mScanBtn.setEnabled(false);
+		mConnectBtn.setEnabled(false);
 	}
 	
 	private void showToast(String message) {
@@ -199,18 +247,17 @@ public class MainActivity extends Activity {
 	        	final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR);
 	        	 
 	        	if (state == BluetoothAdapter.STATE_ON) {
-	        		showToast("Enabled");
 	        		showEnabled();
 	        	}
 	        	
-	        	final int prevState	= intent.getIntExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, BluetoothDevice.ERROR);
-	        	 
-	        	if (state == BluetoothDevice.BOND_BONDED && prevState == BluetoothDevice.BOND_BONDING) {
-	        		showToast("Paired");
-	        	}
-	        	else if (state == BluetoothDevice.BOND_NONE && prevState == BluetoothDevice.BOND_BONDED){
-	        		showToast("Unpaired");
-	        	}
+//	        	final int prevState	= intent.getIntExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, BluetoothDevice.ERROR);
+//	        	 
+//	        	if (state == BluetoothDevice.BOND_BONDED && prevState == BluetoothDevice.BOND_BONDING) {
+//	        		showToast("Paired");
+//	        	}
+//	        	else if (state == BluetoothDevice.BOND_NONE && prevState == BluetoothDevice.BOND_BONDED){
+//	        		showToast("Unpaired");
+//	        	}
 	        }
 	        
 	        else if (BluetoothAdapter.ACTION_DISCOVERY_STARTED.equals(action)) {
@@ -229,61 +276,88 @@ public class MainActivity extends Activity {
 	        
 	        else if (BluetoothDevice.ACTION_FOUND.equals(action)) {
 	        	BluetoothDevice device = (BluetoothDevice) intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-		        Boolean isPaired = false;
+//		        Boolean isPaired = false;
 	        	
 	        	if(device.getName().equals(serverName) && device.getAddress().equals(serverMacAddress)){
 	        		showToast("Found the server");
 	        		mProgressDlg.dismiss();
 	        		mBluetoothAdapter.cancelDiscovery();
 	        		
-	        		Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
-	        		for(BluetoothDevice bt : pairedDevices){
-		        		if(bt.getName().equals(device.getName()) && bt.getAddress().equals(device.getAddress())){
-		        			showToast("Already paired!");
-		        			isPaired = true;
-		        			break;
-		        		}
-		        	}
+//	        		Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
+//	        		for(BluetoothDevice bt : pairedDevices){
+//		        		if(bt.getName().equals(device.getName()) && bt.getAddress().equals(device.getAddress())){
+//		        			showToast("Already paired!");
+//		        			isPaired = true;
+//		        			break;
+//		        		}
+//		        	}
+//	        		
+//	        		if(!isPaired)
+//	        		{ 
+//	    				showToast("Pairing...");
+//	    				
+//	    				if (device.getBondState() == BluetoothDevice.BOND_BONDED) {
+//	    					try {
+//		    					Method method = device.getClass().getMethod("removeBond", (Class[]) null);
+//		    		            method.invoke(device, (Object[]) null);
+//
+//		    		        } catch (Exception e) {
+//		    		            e.printStackTrace();
+//		    		        }
+//	    				} else {
+//	    					showToast("Still Pairing...");
+//	    					try {
+//		    					Method method = device.getClass().getMethod("createBond", (Class[]) null);
+//		    		            method.invoke(device, (Object[]) null);
+//
+//		    		        } catch (Exception e) {
+//		    		            e.printStackTrace();
+//		    		        }
+//	    					
+//	    				}
+//	        		}
 	        		
-	        		if(!isPaired)
-	        		{ 
-	    				showToast("Pairing...");
-	    				
-	    				if (device.getBondState() == BluetoothDevice.BOND_BONDED) {
-	    					try {
-		    					Method method = device.getClass().getMethod("removeBond", (Class[]) null);
-		    		            method.invoke(device, (Object[]) null);
-
-		    		        } catch (Exception e) {
-		    		            e.printStackTrace();
-		    		        }
-	    				} else {
-	    					showToast("Still Pairing...");
-	    					try {
-		    					Method method = device.getClass().getMethod("createBond", (Class[]) null);
-		    		            method.invoke(device, (Object[]) null);
-
-		    		        } catch (Exception e) {
-		    		            e.printStackTrace();
-		    		        }
-	    					
-	    				}
-	        		} 
+//	        		final ProgressDialog pausingDialog = ProgressDialog.show(MainActivity.this, "", "Waiting..", true);
+//	        		new Thread() {
+//	        			public void run() {
+//	        				try {
+//								sleep(4000);
+//							} catch (InterruptedException e) {
+//								// TODO Auto-generated catch block
+//								e.printStackTrace();
+//							} // The length to 'pause' for				
+//	        				pausingDialog.dismiss();
+//	        			}
+//	        		}.start();
 	        		
+	        		try {
+						socket = device.createInsecureRfcommSocketToServiceRecord(uuid);
+					} catch (IOException create) {
+						showToast("Creation problem!!");
+						create.printStackTrace();
+					}
+	        		
+	        		mBluetoothAdapter.cancelDiscovery();
+	        		
+	        		try {
+	        			socket.connect();
+						showToast("Connection established...");
+					} catch (IOException connect) {
+						try {
+							socket.close();
+							showToast("Connection establishment problem!!");
+						} catch (IOException close) {
+							close.printStackTrace();
+						}
+					}
+	        		
+	        		mConnectBtn.setEnabled(false);
+	        		mCancelBtn.setEnabled(true);
 	        	}
 	        	
-	        	mDeviceList.add(device);
+//	        	mDeviceList.add(device);
 	        }
 	    }
 	};
-	
-//	private void pairDevice(BluetoothDevice device) {
-//        try {
-//            Method method = device.getClass().getMethod("createBond", (Class[]) null);
-//            method.invoke(device, (Object[]) null);
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//	}
     
 }
