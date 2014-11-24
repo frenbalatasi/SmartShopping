@@ -42,11 +42,11 @@ public class MainActivity extends Activity {
 	
 	private BluetoothAdapter mBluetoothAdapter;
 	
-	private String serverName = "Arda's iPhone";
-	private String serverMacAddress = "80:EA:96:08:44:20";
+//	private String serverName = "Arda's iPhone";
+//	private String serverMacAddress = "80:EA:96:08:44:20";
 	
-//	private String serverName = "raspberrypi-1";
-//	private String serverMacAddress = "00:1B:DC:06:B5:B3";
+	private String serverName = "raspberrypi-1";
+	private String serverMacAddress = "00:1B:DC:06:B5:B3";
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
