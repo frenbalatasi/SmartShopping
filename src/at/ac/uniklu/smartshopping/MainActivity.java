@@ -274,7 +274,6 @@ public class MainActivity extends Activity {
 	        		
         		if (state == BluetoothDevice.BOND_BONDED && prevState == BluetoothDevice.BOND_BONDING) {
         			showToast("Paired");
-        			isPairingFinished = true;
         		}
         		else if (state == BluetoothDevice.BOND_NONE && prevState == BluetoothDevice.BOND_BONDED){
         			showToast("Unpaired");
