@@ -1,6 +1,8 @@
 package at.ac.uniklu.smartshopping;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Set;
@@ -13,7 +15,9 @@ import android.content.Intent;
 import android.content.IntentFilter;
 
 import android.graphics.Color;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.os.Handler;
 import android.view.View;
 
 import android.app.Activity;
@@ -35,7 +39,6 @@ import android.bluetooth.BluetoothSocket;
  */
 public class MainActivity extends Activity {
 	private TextView mStatusTv;
-//	private Button mActivateBtn;
 	private Button mPairedBtn;
 	private Button mConnectBtn;
 	private Button mCancelBtn;
@@ -43,11 +46,12 @@ public class MainActivity extends Activity {
 	private ProgressDialog mProgressDlg;
 	private ProgressDialog firstScreen;
 	
-	private ArrayList<BluetoothDevice> mDeviceList = new ArrayList<BluetoothDevice>();
-	
 	private BluetoothAdapter mBluetoothAdapter;
-	private BluetoothSocket socket;
-	private UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB");
+	private BluetoothSocket socket = null;
+	private BluetoothDevice device;
+	private static final UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
+	
+	private ArrayList<BluetoothDevice> mDeviceList = new ArrayList<BluetoothDevice>();
 	
 //	private String serverName = "Arda's iPhone";
 //	private String serverMacAddress = "80:EA:96:08:44:20";
@@ -58,9 +62,15 @@ public class MainActivity extends Activity {
 	private String serverName = "raspberrypi-0";
 	private String serverMacAddress = "00:1B:DC:06:B5:B3";
 	
+	private Boolean connectionSuccessful;
+	private Boolean isPairingFinished;
+	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		
+		connectionSuccessful = true;
+		isPairingFinished = false;
 		
 		setContentView(R.layout.activity_main);
 		
@@ -72,6 +82,7 @@ public class MainActivity extends Activity {
 		
 		mBluetoothAdapter	= BluetoothAdapter.getDefaultAdapter();
 		mBluetoothAdapter.enable();
+		
 		
 		mProgressDlg 		= new ProgressDialog(this);
 		firstScreen			= new ProgressDialog(this);
@@ -128,8 +139,7 @@ public class MainActivity extends Activity {
 				public void onClick(View v) {
 					try {
 						socket.close();
-						mConnectBtn.setEnabled(true);
-						mCancelBtn.setEnabled(false);
+						enableConnectBtn();
 						showToast("Connection terminated!");
 					} catch (IOException e) {
 						// TODO Auto-generated catch block
@@ -137,21 +147,6 @@ public class MainActivity extends Activity {
 					}
 				}
 			});
-			
-//			mActivateBtn.setOnClickListener(new View.OnClickListener() {				
-//				@Override
-//				public void onClick(View v) {
-//					if (mBluetoothAdapter.isEnabled()) {
-//						mBluetoothAdapter.disable();
-//						
-//						showDisabled();
-//					} else {
-//						Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
-//						
-//					    startActivityForResult(intent, 1000);
-//					}
-//				}
-//			});
 			
 			if (mBluetoothAdapter.isEnabled()) {
 				showEnabled();
@@ -161,6 +156,10 @@ public class MainActivity extends Activity {
 		}
 		
 		IntentFilter filter = new IntentFilter();
+		
+		Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
+		discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION,120);
+		startActivity(discoverableIntent);
 		
 		filter.addAction(BluetoothAdapter.ACTION_STATE_CHANGED);
 		filter.addAction(BluetoothDevice.ACTION_FOUND);
@@ -178,8 +177,7 @@ public class MainActivity extends Activity {
 				mBluetoothAdapter.cancelDiscovery();
 			}
 		}
-		
-		mBluetoothAdapter.disable();
+		//mBluetoothAdapter.disable();
 		super.onPause();
 	}
 	
@@ -187,27 +185,54 @@ public class MainActivity extends Activity {
 	public void onDestroy() {
 		unregisterReceiver(mReceiver);
 		mBluetoothAdapter.disable();
+		
+		if(socket != null){
+			if(socket.isConnected()){
+				try {
+					socket.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
 		super.onDestroy();
 	}
 	
 	@Override
 	public void onStop(){
 		mBluetoothAdapter.disable();
-		super.onRestart();
+		if(socket != null){
+			if(socket.isConnected()){
+				try {
+					socket.close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+		super.onStop();
 	}
 	
 	@Override
 	public void onRestart(){
 		mBluetoothAdapter.enable();
+		enableConnectBtn();
 		super.onRestart();
+	}
+	
+	private void enableConnectBtn() {
+		mConnectBtn.setEnabled(true);
+		mCancelBtn.setEnabled(false);
+	}
+	
+	private void enableCancelBtn() {
+		mConnectBtn.setEnabled(false);
+		mCancelBtn.setEnabled(true);
 	}
 	
 	private void showEnabled() {
 		mStatusTv.setText("Bluetooth ON");
 		mStatusTv.setTextColor(Color.BLUE);
-		
-//		mActivateBtn.setText("Disable");		
-//		mActivateBtn.setEnabled(true);
 		
 		mPairedBtn.setEnabled(true);
 		mConnectBtn.setEnabled(true);
@@ -217,9 +242,6 @@ public class MainActivity extends Activity {
 		mStatusTv.setText("Bluetooth OFF");
 		mStatusTv.setTextColor(Color.RED);
 		
-//		mActivateBtn.setText("Enable");
-//		mActivateBtn.setEnabled(true);
-		
 		mPairedBtn.setEnabled(false);
 		mConnectBtn.setEnabled(false);
 		mCancelBtn.setEnabled(false);
@@ -228,11 +250,9 @@ public class MainActivity extends Activity {
 	private void showUnsupported() {
 		mStatusTv.setText("Bluetooth is unsupported by this device");
 		
-//		mActivateBtn.setText("Enable");
-//		mActivateBtn.setEnabled(false);
-		
 		mPairedBtn.setEnabled(false);
 		mConnectBtn.setEnabled(false);
+		mCancelBtn.setEnabled(false);
 	}
 	
 	private void showToast(String message) {
@@ -250,114 +270,156 @@ public class MainActivity extends Activity {
 	        		showEnabled();
 	        	}
 	        	
-//	        	final int prevState	= intent.getIntExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, BluetoothDevice.ERROR);
-//	        	 
-//	        	if (state == BluetoothDevice.BOND_BONDED && prevState == BluetoothDevice.BOND_BONDING) {
-//	        		showToast("Paired");
-//	        	}
-//	        	else if (state == BluetoothDevice.BOND_NONE && prevState == BluetoothDevice.BOND_BONDED){
-//	        		showToast("Unpaired");
-//	        	}
+	        	final int prevState = intent.getIntExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE, BluetoothDevice.ERROR);
+	        		
+        		if (state == BluetoothDevice.BOND_BONDED && prevState == BluetoothDevice.BOND_BONDING) {
+        			showToast("Paired");
+        			isPairingFinished = true;
+        		}
+        		else if (state == BluetoothDevice.BOND_NONE && prevState == BluetoothDevice.BOND_BONDED){
+        			showToast("Unpaired");
+        		}
 	        }
-	        
 	        else if (BluetoothAdapter.ACTION_DISCOVERY_STARTED.equals(action)) {
-	        	mDeviceList = new ArrayList<BluetoothDevice>();
 				mProgressDlg.show();
 	        } 
-//	        else if (BluetoothAdapter.ACTION_DISCOVERY_FINISHED.equals(action)) {
-//	        	mProgressDlg.dismiss();
-//	        	
-//	        	Intent newIntent = new Intent(MainActivity.this, DeviceListActivity.class);
-//	        	
-//	        	newIntent.putParcelableArrayListExtra("device.list", mDeviceList);
-//				
-//				startActivity(newIntent);
-//	        }
-	        
 	        else if (BluetoothDevice.ACTION_FOUND.equals(action)) {
-	        	BluetoothDevice device = (BluetoothDevice) intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-//		        Boolean isPaired = false;
+	        	device = (BluetoothDevice) intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
 	        	
 	        	if(device.getName().equals(serverName) && device.getAddress().equals(serverMacAddress)){
 	        		showToast("Found the server");
-	        		mProgressDlg.dismiss();
 	        		mBluetoothAdapter.cancelDiscovery();
 	        		
-//	        		Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
-//	        		for(BluetoothDevice bt : pairedDevices){
-//		        		if(bt.getName().equals(device.getName()) && bt.getAddress().equals(device.getAddress())){
-//		        			showToast("Already paired!");
-//		        			isPaired = true;
-//		        			break;
-//		        		}
-//		        	}
-//	        		
-//	        		if(!isPaired)
-//	        		{ 
-//	    				showToast("Pairing...");
-//	    				
-//	    				if (device.getBondState() == BluetoothDevice.BOND_BONDED) {
-//	    					try {
-//		    					Method method = device.getClass().getMethod("removeBond", (Class[]) null);
-//		    		            method.invoke(device, (Object[]) null);
-//
-//		    		        } catch (Exception e) {
-//		    		            e.printStackTrace();
-//		    		        }
-//	    				} else {
-//	    					showToast("Still Pairing...");
-//	    					try {
-//		    					Method method = device.getClass().getMethod("createBond", (Class[]) null);
-//		    		            method.invoke(device, (Object[]) null);
-//
-//		    		        } catch (Exception e) {
-//		    		            e.printStackTrace();
-//		    		        }
-//	    					
-//	    				}
-//	        		}
+	        		pairWithServer();
+
+	        	    final Handler handler = new Handler();
+	        	    handler.postDelayed(new Runnable() {
+	        	      @Override
+	        	      public void run() {
+	        	    	  new BluetoothConnectionTask().execute();
+	        	      }
+	        	    }, 6000);
 	        		
-//	        		final ProgressDialog pausingDialog = ProgressDialog.show(MainActivity.this, "", "Waiting..", true);
-//	        		new Thread() {
-//	        			public void run() {
-//	        				try {
-//								sleep(4000);
-//							} catch (InterruptedException e) {
-//								// TODO Auto-generated catch block
-//								e.printStackTrace();
-//							} // The length to 'pause' for				
-//	        				pausingDialog.dismiss();
-//	        			}
-//	        		}.start();
-	        		
-	        		try {
-						socket = device.createInsecureRfcommSocketToServiceRecord(uuid);
-					} catch (IOException create) {
-						showToast("Creation problem!!");
-						create.printStackTrace();
-					}
-	        		
-	        		mBluetoothAdapter.cancelDiscovery();
-	        		
-	        		try {
-	        			socket.connect();
-						showToast("Connection established...");
-					} catch (IOException connect) {
-						try {
-							socket.close();
-							showToast("Connection establishment problem!!");
-						} catch (IOException close) {
-							close.printStackTrace();
-						}
-					}
-	        		
-	        		mConnectBtn.setEnabled(false);
-	        		mCancelBtn.setEnabled(true);
-	        	}
-	        	
-//	        	mDeviceList.add(device);
+	        		mDeviceList.add(device);
+	        	}	
 	        }
 	    }
 	};
-    
+	
+	protected class BluetoothConnectionTask extends AsyncTask<String, Void, String> {
+	
+		@Override
+		protected String doInBackground(String... params) {
+			
+			connectToServerAndSendString();
+			return null;
+		}
+		
+		@Override
+		protected void onPostExecute(String args) {
+			if (connectionSuccessful) {
+	        	showToast("Connection established...");
+				enableCancelBtn();
+    		}
+    		else if (!connectionSuccessful) {
+    			showToast("Connection CANNOT be established!");
+		   		enableConnectBtn();
+    		}
+			
+    		mProgressDlg.dismiss();
+		}
+	}
+	
+	private void connectToServerAndSendString() {
+		try {
+//			Method m=device.getClass().getMethod("createRfcommSocket", new Class[]{int.class});
+//          socket = (BluetoothSocket) m.invoke(device, 1);
+			
+			// Connection to server
+			socket = device.createInsecureRfcommSocketToServiceRecord(uuid);
+			mBluetoothAdapter.cancelDiscovery();
+			socket.connect();
+			
+			// Send a string to server
+			String data = "DATA SENT";
+			OutputStream outputStream = socket.getOutputStream();
+			outputStream.write(data.getBytes());
+			socket.close();
+		
+		} catch (Exception connect) {
+			connectionSuccessful = false;
+			connect.printStackTrace();
+ 		   	try {
+ 		   		socket.close();
+ 		   	} catch (IOException close) {
+ 		   		close.printStackTrace();
+ 		   	}
+		}
+		mProgressDlg.dismiss();
+	}
+	
+	private void pairWithServer() {
+		Boolean isPaired = false;
+		Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
+		for(BluetoothDevice bt : pairedDevices){
+			if(bt.getName().equals(device.getName()) && bt.getAddress().equals(device.getAddress())){
+				showToast("Already paired!");
+				isPaired = true;
+				break;
+			}
+		 }
+		
+		 if(!isPaired) {
+			 showToast("Pairing...");
+		
+			 if (device.getBondState() == BluetoothDevice.BOND_BONDED) {
+				 try {
+					 Method method = device.getClass().getMethod("removeBond", (Class[]) null);
+					 method.invoke(device, (Object[]) null);
+		
+				 } catch (Exception e) {
+					 e.printStackTrace();
+				 }
+			 } 
+			 else {
+				 try {
+					 Method method = device.getClass().getMethod("createBond", (Class[]) null);
+					 method.invoke(device, (Object[]) null);
+				 } catch (Exception e) {
+					 e.printStackTrace();
+				 }
+		
+			 }
+		}
+		
+	}
+	
+//	private class PairingThread implements Runnable {
+//
+//		@Override
+//		public void run() {	
+//			synchronized(lock) {
+//           		pairWithServer();
+//				lock.notifyAll();
+//			}
+//		}
+//	}
+//	private class ConnectionThread implements Runnable {
+//
+//		@Override
+//		public void run() {
+//			synchronized (lock) {
+//	            try{
+//	                lock.wait();
+//	            }catch(InterruptedException e){
+//	                e.printStackTrace();
+//	            }
+//	            
+//	            showToast("Lock is unlocked.");
+//	        }
+//		}
+//		
+//	}
+	
+
 }
