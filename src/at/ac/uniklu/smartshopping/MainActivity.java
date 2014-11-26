@@ -330,6 +330,8 @@ public class MainActivity extends Activity {
 		}
 	}
 	
+	
+	
 	private void connectToServerAndSendString() {
 		try {
 //			Method m=device.getClass().getMethod("createRfcommSocket", new Class[]{int.class});
