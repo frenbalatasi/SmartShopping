@@ -53,14 +53,14 @@ public class MainActivity extends Activity {
 	
 	private ArrayList<BluetoothDevice> mDeviceList = new ArrayList<BluetoothDevice>();
 	
-//	private String serverName = "Arda's iPhone";
-//	private String serverMacAddress = "80:EA:96:08:44:20";
+	private String serverName = "Arda's iPhone";
+	private String serverMacAddress = "80:EA:96:08:44:20";
 	
 //	private String serverName = "Serjinator";
 //	private String serverMacAddress = "98:D6:F7:B2:3E:E9";
 	
-	private String serverName = "raspberrypi-0";
-	private String serverMacAddress = "00:1B:DC:06:B5:B3";
+//	private String serverName = "raspberrypi-0";
+//	private String serverMacAddress = "00:1B:DC:06:B5:B3";
 	
 	private Boolean connectionSuccessful;
 	private Boolean isPairingFinished;
