@@ -29,6 +29,7 @@ import android.widget.Toast;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 
 /**
@@ -47,7 +48,8 @@ public class MainActivity extends Activity {
 	private ProgressDialog firstScreen;
 	
 	private BluetoothAdapter mBluetoothAdapter;
-	private BluetoothSocket socket = null;
+	private BluetoothSocket socket;
+	private BluetoothServerSocket  mServerSocket;
 	private BluetoothDevice device;
 	private static final UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
 	
@@ -95,12 +97,16 @@ public class MainActivity extends Activity {
 		    public void onClick(DialogInterface dialog, int which) {
 		        dialog.dismiss();
 		        
-		        mBluetoothAdapter.cancelDiscovery();
+		        try {
+					mServerSocket.close();
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+		        
+		        //mBluetoothAdapter.cancelDiscovery();
 		    }
 		});
-		
-		firstScreen.setMessage("Loading...");
-		firstScreen.setCancelable(false);
 		
 		
 		if (mBluetoothAdapter == null) {
@@ -130,7 +136,18 @@ public class MainActivity extends Activity {
 			mConnectBtn.setOnClickListener(new View.OnClickListener() {				
 				@Override
 				public void onClick(View arg0) {
-					mBluetoothAdapter.startDiscovery();
+					
+					mProgressDlg.show();
+					
+					final Handler handler = new Handler();
+	        	    handler.postDelayed(new Runnable() {
+	        	      @Override
+	        	      public void run() {
+	        	    	  new BluetoothConnectionTask().execute();
+	        	      }
+	        	    }, 6000);
+	        	    
+//					mBluetoothAdapter.startDiscovery();
 				}
 			});
 			
@@ -177,7 +194,7 @@ public class MainActivity extends Activity {
 				mBluetoothAdapter.cancelDiscovery();
 			}
 		}
-		//mBluetoothAdapter.disable();
+//		mBluetoothAdapter.disable();
 		super.onPause();
 	}
 	
@@ -291,13 +308,6 @@ public class MainActivity extends Activity {
 	        		
 	        		pairWithServer();
 
-	        	    final Handler handler = new Handler();
-	        	    handler.postDelayed(new Runnable() {
-	        	      @Override
-	        	      public void run() {
-	        	    	  new BluetoothConnectionTask().execute();
-	        	      }
-	        	    }, 6000);
 	        		
 	        		mDeviceList.add(device);
 	        	}	
@@ -305,12 +315,12 @@ public class MainActivity extends Activity {
 	    }
 	};
 	
-	protected class BluetoothConnectionTask extends AsyncTask<String, Void, String> {
+	private class BluetoothConnectionTask extends AsyncTask<String, Void, String> {
 	
 		@Override
 		protected String doInBackground(String... params) {
 			
-			connectToServerAndSendString();
+			waitForIncomingConnections();
 			return null;
 		}
 		
@@ -330,32 +340,38 @@ public class MainActivity extends Activity {
 	}
 	
 	
-	private void connectToServerAndSendString() {
-		try {
-//			Method m=device.getClass().getMethod("createRfcommSocket", new Class[]{int.class});
-//          socket = (BluetoothSocket) m.invoke(device, 1);
-			
-			// Connection to server
-			socket = device.createInsecureRfcommSocketToServiceRecord(uuid);
-			mBluetoothAdapter.cancelDiscovery();
-			socket.connect();
-			
-			// Send a string to server
-			String data = "DATA SENT";
-			OutputStream outputStream = socket.getOutputStream();
-			outputStream.write(data.getBytes());
-			socket.close();
+	private void waitForIncomingConnections() {
+		BluetoothServerSocket tmp = null;
 		
-		} catch (Exception connect) {
-			connectionSuccessful = false;
-			connect.printStackTrace();
- 		   	try {
- 		   		socket.close();
- 		   	} catch (IOException close) {
- 		   		close.printStackTrace();
- 		   	}
-		}
-		mProgressDlg.dismiss();
+		try {
+            tmp = mBluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord("SmartShopping", uuid);
+        } catch (IOException e) { 
+        	connectionSuccessful = false;
+        }
+        mServerSocket = tmp;
+        socket = null;
+        
+        while(true){
+        	try {
+                socket = mServerSocket.accept();
+            } catch (IOException e) {
+            	connectionSuccessful = false;
+            	break;
+            }
+            
+            if (socket.isConnected()) {
+            	connectionSuccessful = true;
+                try {
+    				mServerSocket.close();
+    			} catch (IOException e) {
+    				// TODO Auto-generated catch block
+    				e.printStackTrace();
+    			}
+                break;
+            }
+        }
+
+		
 	}
 	
 	private void pairWithServer() {
@@ -393,33 +409,6 @@ public class MainActivity extends Activity {
 		}
 		
 	}
-	
-//	private class PairingThread implements Runnable {
-//
-//		@Override
-//		public void run() {	
-//			synchronized(lock) {
-//           		pairWithServer();
-//				lock.notifyAll();
-//			}
-//		}
-//	}
-//	private class ConnectionThread implements Runnable {
-//
-//		@Override
-//		public void run() {
-//			synchronized (lock) {
-//	            try{
-//	                lock.wait();
-//	            }catch(InterruptedException e){
-//	                e.printStackTrace();
-//	            }
-//	            
-//	            showToast("Lock is unlocked.");
-//	        }
-//		}
-//		
-//	}
 	
 
 }
