@@ -1,6 +1,7 @@
 package at.ac.uniklu.smartshopping;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -18,6 +19,7 @@ import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.Log;
 import android.view.View;
 
 import android.app.Activity;
@@ -51,18 +53,22 @@ public class MainActivity extends Activity {
 	private BluetoothSocket socket;
 	private BluetoothServerSocket  mServerSocket;
 	private BluetoothDevice device;
+	private OutputStream mmOutputStream;
+    private InputStream mmInputStream;
 	private static final UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
 	
 	private ArrayList<BluetoothDevice> mDeviceList = new ArrayList<BluetoothDevice>();
+
+    private String receivedString;
 	
-	private String serverName = "Arda's iPhone";
-	private String serverMacAddress = "80:EA:96:08:44:20";
+//	private String serverName = "Arda's iPhone";
+//	private String serverMacAddress = "80:EA:96:08:44:20";
 	
 //	private String serverName = "Serjinator";
 //	private String serverMacAddress = "98:D6:F7:B2:3E:E9";
 	
-//	private String serverName = "raspberrypi-0";
-//	private String serverMacAddress = "00:1B:DC:06:B5:B3";
+	private String serverName = "raspberrypi-0";
+	private String serverMacAddress = "00:1B:DC:06:B5:B3";
 	
 	private Boolean connectionSuccessful;
 	private Boolean isPairingFinished;
@@ -85,10 +91,8 @@ public class MainActivity extends Activity {
 		mBluetoothAdapter	= BluetoothAdapter.getDefaultAdapter();
 		mBluetoothAdapter.enable();
 		
-		
 		mProgressDlg 		= new ProgressDialog(this);
 		firstScreen			= new ProgressDialog(this);
-		
 		
 		mProgressDlg.setMessage("Connecting...");
 		mProgressDlg.setCancelable(false);
@@ -115,21 +119,23 @@ public class MainActivity extends Activity {
 			mPairedBtn.setOnClickListener(new View.OnClickListener() {				
 				@Override
 				public void onClick(View v) {
-					Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
+//					Set<BluetoothDevice> pairedDevices = mBluetoothAdapter.getBondedDevices();
+//					
+//					if (pairedDevices == null || pairedDevices.size() == 0) { 
+//						showToast("No Paired Devices Found");
+//					} else {
+//						ArrayList<BluetoothDevice> list = new ArrayList<BluetoothDevice>();
+//						
+//						list.addAll(pairedDevices);
+//						
+//						Intent intent = new Intent(MainActivity.this, DeviceListActivity.class);
+//						
+//						intent.putParcelableArrayListExtra("device.list", list);
+//						
+//						startActivity(intent);						
+//					}
 					
-					if (pairedDevices == null || pairedDevices.size() == 0) { 
-						showToast("No Paired Devices Found");
-					} else {
-						ArrayList<BluetoothDevice> list = new ArrayList<BluetoothDevice>();
-						
-						list.addAll(pairedDevices);
-						
-						Intent intent = new Intent(MainActivity.this, DeviceListActivity.class);
-						
-						intent.putParcelableArrayListExtra("device.list", list);
-						
-						startActivity(intent);						
-					}
+					showToast(receivedString);
 				}
 			});
 			
@@ -140,12 +146,12 @@ public class MainActivity extends Activity {
 					mProgressDlg.show();
 					
 					final Handler handler = new Handler();
-	        	    handler.postDelayed(new Runnable() {
+	        	    handler.post(new Runnable() {
 	        	      @Override
 	        	      public void run() {
 	        	    	  new BluetoothConnectionTask().execute();
 	        	      }
-	        	    }, 6000);
+	        	    });
 	        	    
 //					mBluetoothAdapter.startDiscovery();
 				}
@@ -319,32 +325,45 @@ public class MainActivity extends Activity {
 	
 		@Override
 		protected String doInBackground(String... params) {
-			
 			waitForIncomingConnections();
+			try {
+				socket.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			connectToServerAndSendString();
 			return null;
 		}
 		
 		@Override
 		protected void onPostExecute(String args) {
-			if (connectionSuccessful) {
-	        	showToast("Connection established...");
-				enableCancelBtn();
-    		}
-    		else if (!connectionSuccessful) {
-    			showToast("Connection CANNOT be established!");
-		   		enableConnectBtn();
-    		}
-			
+			showToast(receivedString);
     		mProgressDlg.dismiss();
 		}
 	}
+	
+//	private class BluetoothSendingTask extends AsyncTask<String, Void, String> {
+//		
+//		@Override
+//		protected String doInBackground(String... params) {
+//			
+//			return null;
+//		}
+//		
+//		@Override
+//		protected void onPostExecute(String args) {
+//			showToast(receivedString);
+//    		mProgressDlg.dismiss();
+//		}
+//	}
 	
 	
 	private void waitForIncomingConnections() {
 		BluetoothServerSocket tmp = null;
 		
 		try {
-            tmp = mBluetoothAdapter.listenUsingInsecureRfcommWithServiceRecord("SmartShopping", uuid);
+            tmp = mBluetoothAdapter.listenUsingRfcommWithServiceRecord("SmartShopping", uuid);
         } catch (IOException e) { 
         	connectionSuccessful = false;
         }
@@ -359,19 +378,68 @@ public class MainActivity extends Activity {
             	break;
             }
             
-            if (socket.isConnected()) {
+            if (socket != null) {
             	connectionSuccessful = true;
-                try {
-    				mServerSocket.close();
-    			} catch (IOException e) {
-    				// TODO Auto-generated catch block
-    				e.printStackTrace();
-    			}
+            	beginListenForData();
                 break;
             }
         }
 
 		
+	}
+	
+	private void beginListenForData() {
+		int bufferSize = 1024; 
+		byte[] readBuffer = new byte[1024];
+		
+		 try {
+			 mmInputStream = socket.getInputStream();
+			 int bytesRead = -1;
+			 receivedString = "";
+			 
+			 while (true) {
+				 bytesRead = mmInputStream.read(readBuffer);
+				 if (bytesRead != -1) {
+					 
+					 while ((bytesRead==bufferSize)&&(readBuffer[bufferSize-1] != 0)) {
+						 receivedString = receivedString + new String(readBuffer, 0, bytesRead);
+						 bytesRead = mmInputStream.read(readBuffer);
+					 }
+					 
+					 receivedString = receivedString + new String(readBuffer, 0, bytesRead);
+					 socket.getInputStream();
+				 }
+
+			 }
+		 } catch (IOException e) { 
+			 Log.d("BluetoothServer", e.getMessage());
+		 }
+	}
+	
+	private void connectToServerAndSendString() {
+		try {
+			// Connection to server
+			device = mBluetoothAdapter.getRemoteDevice(serverMacAddress);
+			socket = device.createRfcommSocketToServiceRecord(uuid);
+			socket.connect();
+			
+			// Send a string to server
+			String data = "ack";
+			OutputStream outputStream = socket.getOutputStream();
+			outputStream.write(data.getBytes());
+			socket.close();
+			
+		} catch (IOException e) {
+			
+			connectionSuccessful = false;
+			Log.e("BluetoothClient",e.getMessage());
+			
+			try {
+				socket.close();
+			} catch (IOException close) {
+				close.printStackTrace();
+			}
+		}
 	}
 	
 	private void pairWithServer() {
