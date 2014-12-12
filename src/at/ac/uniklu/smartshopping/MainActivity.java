@@ -437,7 +437,7 @@ public class MainActivity extends Activity {
 			try {
 				socket.close();
 			} catch (IOException close) {
-				close.printStackTrace();
+				Log.e("BluetoothClient","Couldn't close the socket."+close.getMessage());
 			}
 		}
 	}
