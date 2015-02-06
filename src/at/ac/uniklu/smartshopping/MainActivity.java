@@ -23,9 +23,13 @@ import android.util.Log;
 import android.view.View;
 
 import android.app.Activity;
+import android.app.FragmentManager;
+import android.app.FragmentTransaction;
 import android.app.ProgressDialog;
 
 import android.widget.Button;
+import android.widget.CheckedTextView;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -42,6 +46,11 @@ import android.bluetooth.BluetoothSocket;
  */
 public class MainActivity extends Activity {	
 	private ProgressDialog mProgressDlg;
+	private Button buttonCheckout;
+	private ListView listView;
+	
+	private ShoppingListAdapter slAdapter;
+	private ArrayList<ShoppingItem> shoppingList;
 	
 	private BluetoothAdapter mBluetoothAdapter;
 	private BluetoothSocket socket;
@@ -51,7 +60,8 @@ public class MainActivity extends Activity {
     private InputStream mmInputStream;
 	private static final UUID uuid = UUID.fromString("00001101-0000-1000-8000-00805f9b34fb");
 
-    private String receivedString;
+    private String receivedString = "";
+    private String sentString = "";
 	
 	private String serverName = "Arda's iPhone";
 	private String serverMacAddress = "80:EA:96:08:44:20";
@@ -67,9 +77,25 @@ public class MainActivity extends Activity {
 		super.onCreate(savedInstanceState);
 		
 		setContentView(R.layout.activity_main);
+	   
+		listView = (ListView)findViewById(R.id.listView);
+		buttonCheckout = (Button)findViewById(R.id.buttonCheckout);
 		
-		mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-	
+		shoppingList = new ArrayList<ShoppingItem>();
+		
+		ShoppingItem item1 = new ShoppingItem();
+		item1.setText("Arda");
+		ShoppingItem item2 = new ShoppingItem();
+		item2.setText("Akcay");
+		
+		shoppingList.add(item1);
+		shoppingList.add(item2);
+		
+		slAdapter = new ShoppingListAdapter(this);
+		slAdapter.setData(shoppingList);
+		listView.setAdapter(slAdapter);
+		slAdapter.notifyDataSetChanged();
+		
 		mProgressDlg = new ProgressDialog(this);	
 		mProgressDlg.setMessage("Connecting...");
 		mProgressDlg.setCancelable(false);
@@ -77,16 +103,20 @@ public class MainActivity extends Activity {
 		Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
 		discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION,120);
 		startActivity(discoverableIntent);
+		
 	}
 	
 	@Override
 	public void onResume(){
 		super.onResume();
 		
-		mBluetoothAdapter.enable();
+		toggleListeners();
+		
+		mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 		
 		if (mBluetoothAdapter != null) {
-			mProgressDlg.show();
+			mBluetoothAdapter.enable();
+			//mProgressDlg.show();
 			
 			final Handler handler = new Handler();
 			handler.postDelayed(new Runnable() {
@@ -138,24 +168,64 @@ public class MainActivity extends Activity {
 		}
 	}
 	
+	private void toggleListeners() {
+		
+		slAdapter.setRadioButtonClickListener(new ShoppingListAdapter.OnRadioButtonClickListener() {			
+			@Override
+			public void onRadioButtonClick(int position){
+				ShoppingItem selectedItem = shoppingList.get(position);
+				if(selectedItem.isChecked() == false) {
+					selectedItem.setChecked(true);
+				}
+				else if(selectedItem.isChecked() == true){
+					selectedItem.setChecked(false);
+				}
+				
+				slAdapter.notifyDataSetChanged();
+			}
+		});
+		
+		buttonCheckout.setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				sentString = "";
+				
+				for (int i = 0; i < shoppingList.size(); i++) {
+					if(shoppingList.get(i).isChecked())
+						sentString = sentString + (shoppingList.get(i).getText()) + ",";
+				}
+				
+				showToast(sentString);
+				
+				final Handler handler = new Handler();
+				handler.post(new Runnable() {
+					@Override
+					public void run() {
+						new BluetoothConnectionTask().execute();
+					}
+				});
+			}
+	    });
+	}
+	
 	private class BluetoothConnectionTask extends AsyncTask<String, Void, String> {
 	
 		@Override
 		protected String doInBackground(String... params) {
 //			waitForIncomingConnections();
-			try {
-				socket.close();
-			} catch (IOException ex) {
-				Log.e("BluetoothSocket","Couldn't close the bluetooth socket."+ex.getMessage());
-			}
+//			try {
+//				socket.close();
+//			} catch (IOException ex) {
+//				Log.e("BluetoothSocket","Couldn't close the bluetooth socket."+ex.getMessage());
+//			}
 			connectToServerAndSendString();
 			return null;
 		}
 		
 		@Override
 		protected void onPostExecute(String args) {
-			showToast(receivedString);
-    		mProgressDlg.dismiss();
+			showToast("Successful");
+    		//mProgressDlg.dismiss();
 		}
 	}
 
@@ -233,19 +303,16 @@ public class MainActivity extends Activity {
 			Log.e("BluetoothClient","Couldn't connect to server."+ex.getMessage());
 		}
 		
-		// Send ack to server
-		String data = "ack";
-		OutputStream outputStream;
-		
+		// Send the checkout information to server
 		try {
-			outputStream = socket.getOutputStream();
-			outputStream.write(data.getBytes());
+			mmOutputStream = socket.getOutputStream();
+			mmOutputStream.write(sentString.getBytes());
 		} catch (IOException ex) {
 			Log.e("BluetoothClient","Couldn't write to outputstream."+ex.getMessage());
 		}
 		
 		try {
-			Thread.sleep(3000);
+			Thread.sleep(2000);
 		} catch (InterruptedException ex) {
 			Log.e("BluetoothClient","Thread couldn't sleep."+ex.getMessage());
 		}
