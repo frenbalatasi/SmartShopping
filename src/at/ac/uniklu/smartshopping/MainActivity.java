@@ -85,43 +85,6 @@ public class MainActivity extends Activity {
 		
 		shoppingList = new ArrayList<ShoppingItem>();
 		
-//		ShoppingItem item1 = new ShoppingItem();
-//		item1.setText("Flat Panel Televisions");
-//		ShoppingItem item2 = new ShoppingItem();
-//		item2.setText("DVD & Blu-ray Players");
-//		ShoppingItem item3 = new ShoppingItem();
-//		item3.setText("Home Theater Systems");
-//		ShoppingItem item4 = new ShoppingItem();
-//		item4.setText("MP3 Players");
-//		ShoppingItem item5 = new ShoppingItem();
-//		item5.setText("HDMI Cables");
-//		ShoppingItem item6 = new ShoppingItem();
-//		item6.setText("Desktop Computers");
-//		ShoppingItem item7 = new ShoppingItem();
-//		item7.setText("Tablet Computers");
-//		ShoppingItem item10 = new ShoppingItem();
-//		item10.setText("DVD Drives");
-//		ShoppingItem item11 = new ShoppingItem();
-//		item11.setText("USB Flash Drives");
-//		ShoppingItem item12 = new ShoppingItem();
-//		item12.setText("Keyboard & Mouse Sets");
-//		ShoppingItem item13 = new ShoppingItem();
-//		item13.setText("Playstation 3 Consoles");
-//		ShoppingItem item14 = new ShoppingItem();
-//		item14.setText("XBox 360 Consoles");
-//		ShoppingItem item15 = new ShoppingItem();
-//		item15.setText("Wii Consoles");
-//		ShoppingItem item16 = new ShoppingItem();
-//		item16.setText("Wii U Consoles");
-//		ShoppingItem item17 = new ShoppingItem();
-//		item17.setText("Nintendo 3DS");
-//		ShoppingItem item18 = new ShoppingItem();
-//		item18.setText("Playstation Vita");
-//		ShoppingItem item19 = new ShoppingItem();
-//		item19.setText("USB Cables");
-//		ShoppingItem item20 = new ShoppingItem();
-//		item20.setText("Ethernet Cables");
-		
 		datasource = new ProductsDataSource(this);
 		datasource.open();
 		shoppingList = datasource.getAllProducts();
