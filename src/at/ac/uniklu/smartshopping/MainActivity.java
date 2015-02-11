@@ -20,6 +20,8 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 
 import android.app.Activity;
@@ -50,6 +52,7 @@ public class MainActivity extends Activity {
 	private ListView listView;
 	
 	private ProductsDataSource datasource;
+	private ArrayList<String> habitsList;
 	
 	private ShoppingListAdapter slAdapter;
 	private ArrayList<ShoppingItem> shoppingList;
@@ -65,14 +68,14 @@ public class MainActivity extends Activity {
     private String receivedString = "";
     private String sentString = "";
 	
-	private String serverName = "Arda's iPhone";
-	private String serverMacAddress = "80:EA:96:08:44:20";
+//	private String serverName = "Arda's iPhone";
+//	private String serverMacAddress = "80:EA:96:08:44:20";
 	
 //	private String serverName = "Serjinator";
 //	private String serverMacAddress = "98:D6:F7:B2:3E:E9";
 	
-//	private String serverName = "raspberrypi-0";
-//	private String serverMacAddress = "00:1B:DC:06:B5:B3";
+	private String serverName = "raspberrypi-0";
+	private String serverMacAddress = "00:1B:DC:06:B5:B3";
 	
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
@@ -88,6 +91,73 @@ public class MainActivity extends Activity {
 		datasource = new ProductsDataSource(this);
 		datasource.open();
 		shoppingList = datasource.getAllProducts();
+		habitsList = datasource.getAllHabitInfo();
+		
+		for (int i = 0; i < shoppingList.size(); i++) {
+			switch(i) {
+				case 0:
+					shoppingList.get(i).setTable("Televisions");
+					break;
+				case 1:
+					shoppingList.get(i).setTable("Video Players & Recorders");
+					break;
+				case 2:
+					shoppingList.get(i).setTable("Audio Players & Recorders");
+					break;
+				case 3:
+					shoppingList.get(i).setTable("Audio & Video Cables");
+					break;
+				case 4:
+					shoppingList.get(i).setTable("Audio Players & Recorders");
+					break;
+				case 5:
+					shoppingList.get(i).setTable("Audio Components");
+					break;
+				case 6:
+					shoppingList.get(i).setTable("Computers");
+					break;
+				case 7:
+					shoppingList.get(i).setTable("Computers");
+					break;
+				case 8:
+					shoppingList.get(i).setTable("Computers");
+					break;
+				case 9:
+					shoppingList.get(i).setTable("Storage Devices");
+					break;
+				case 10:
+					shoppingList.get(i).setTable("Optical Drives");
+					break;
+				case 11:
+					shoppingList.get(i).setTable("Storage Devices");
+					break;
+				case 12:
+					shoppingList.get(i).setTable("Computer Accessories");
+					break;
+				case 13:
+					shoppingList.get(i).setTable("Home Game Consoles");
+					break;
+				case 14:
+					shoppingList.get(i).setTable("Home Game Consoles");
+					break;
+				case 15:
+					shoppingList.get(i).setTable("Home Game Consoles");
+					break;
+				case 16:
+					shoppingList.get(i).setTable("Portable Game Consoles");
+					break;
+				case 17:
+					shoppingList.get(i).setTable("Portable Game Consoles");
+					break;
+				case 18:
+					shoppingList.get(i).setTable("Data Transfer Cables");
+					break;
+				case 19:
+					shoppingList.get(i).setTable("Network Cables");
+					break;
+			}
+			
+		}
 		
 		slAdapter = new ShoppingListAdapter(this);
 		slAdapter.setData(shoppingList);
@@ -101,16 +171,28 @@ public class MainActivity extends Activity {
 		mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 		
 		Intent discoverableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
-		discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION,120);
+		discoverableIntent.putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION,0);
 		startActivity(discoverableIntent);
 		
-		for (int i = 0; i < shoppingList.size(); i++) {
-			if(shoppingList.get(i).isChecked())
-				sentString = sentString + (shoppingList.get(i).getText()) + ",";
+//		for (int i = 0; i < shoppingList.size(); i++) {
+//			if(shoppingList.get(i).isChecked()) {
+//				sentString = sentString + (shoppingList.get(i).getTable()+">")+(shoppingList.get(i).getText()) + ",";
+//			}
+//		}
+		
+		sentString = habitsList.get(0);
+		
+		if (mBluetoothAdapter != null) {
+			
+			final Handler handler = new Handler();
+			handler.post(new Runnable() {
+				@Override
+				public void run() {
+					new BluetoothConnectionTask().execute();
+				}
+			});
+			
 		}
-		
-		showToast(sentString);
-		
 	}
 	
 	@Override
@@ -120,20 +202,7 @@ public class MainActivity extends Activity {
 		datasource.open();
 		
 		toggleListeners();
-		
-		if (mBluetoothAdapter != null) {
-			mBluetoothAdapter.enable();
-			//mProgressDlg.show();
-			
-			final Handler handler = new Handler();
-			handler.postDelayed(new Runnable() {
-				@Override
-				public void run() {
-					new BluetoothConnectionTask().execute();
-				}
-			}, 5000);
-			
-		} 
+		 
 	}
 	
 	@Override
@@ -147,9 +216,7 @@ public class MainActivity extends Activity {
 	public void onDestroy() {
 		super.onDestroy();
 		
-		datasource.close();
-		closeBluetoothSocket();
-		mBluetoothAdapter.disable();	
+		datasource.close();	
 	}
 	
 	@Override
@@ -157,6 +224,36 @@ public class MainActivity extends Activity {
 		super.onStop();
 		
 		datasource.close();
+	}
+	
+	@Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.main, menu);
+        return true;
+    }
+	
+	@Override
+	public boolean onOptionsItemSelected(MenuItem item) {
+		
+		// Handle action bar item clicks here. The action bar will
+		// automatically handle clicks on the Home/Up button, so long
+		// as you specify a parent activity in AndroidManifest.xml.
+		
+		int id = item.getItemId();
+		if (id == R.id.action_refresh) {
+			
+			final Handler handler = new Handler();
+			handler.post(new Runnable() {
+				@Override
+				public void run() {
+					new BluetoothConnectionTask().execute();
+				}
+			});
+			
+			return true;
+		}
+		return super.onOptionsItemSelected(item);
 	}
 	
 	private void showToast(String message) {
@@ -197,48 +294,73 @@ public class MainActivity extends Activity {
 		buttonCheckout.setOnClickListener(new View.OnClickListener() {
 			@Override
 			public void onClick(View v) {
-				sentString = "";
+				habitsList = datasource.getAllHabitInfo();
+				String checkedItemString = "";
 				
 				for (int i = 0; i < shoppingList.size(); i++) {
-					if(shoppingList.get(i).isChecked())
-						sentString = sentString + (shoppingList.get(i).getText()) + ",";
+					if(shoppingList.get(i).isChecked()) {
+						checkedItemString =  checkedItemString + (shoppingList.get(i).getTable()+">")+(shoppingList.get(i).getText()) + ",";
+					}
 				}
 				
-				showToast(sentString);
+				sentString = habitsList.get(0).concat(checkedItemString);
+				datasource.updateHabitInfo(sentString);
 				
-				final Handler handler = new Handler();
-				handler.post(new Runnable() {
-					@Override
-					public void run() {
-						new BluetoothConnectionTask().execute();
-					}
-				});
 			}
 	    });
 	}
 	
 	private class BluetoothConnectionTask extends AsyncTask<String, Void, String> {
+		
+		@Override
+		protected void onPreExecute() {
+			
+		}
 	
 		@Override
 		protected String doInBackground(String... params) {
-//			waitForIncomingConnections();
-//			try {
-//				socket.close();
-//			} catch (IOException ex) {
-//				Log.e("BluetoothSocket","Couldn't close the bluetooth socket."+ex.getMessage());
-//			}
+			waitForIncomingConnections();
+			
+			try {
+				socket.close();
+			} catch (IOException ex) {
+				Log.e("BluetoothSocket","Couldn't close the bluetooth socket."+ex.getMessage());
+			}
+			
 			connectToServerAndSendString();
 			return null;
 		}
 		
 		@Override
 		protected void onPostExecute(String args) {
-			showToast("Successful");
-    		//mProgressDlg.dismiss();
+			
+			final Handler handler = new Handler();
+			handler.post(new Runnable() {
+				@Override
+				public void run() {
+					new BluetoothConnectionTask().execute();
+				}
+			});
 		}
 	}
 
 	private void waitForIncomingConnections() {
+		mBluetoothAdapter.disable();
+		
+		try {
+			Thread.sleep(3000);
+		} catch (InterruptedException ex) {
+			Log.e("ThreadWaiting","Thread couldn't sleep."+ex.getMessage());
+		}
+		
+		mBluetoothAdapter.enable();
+		
+		try {
+			Thread.sleep(3000);
+		} catch (InterruptedException ex) {
+			Log.e("ThreadWaiting","Thread couldn't sleep."+ex.getMessage());
+		}
+		
 		BluetoothServerSocket tmp = null;
 		
 		try {

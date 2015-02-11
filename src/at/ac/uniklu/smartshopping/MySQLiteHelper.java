@@ -9,19 +9,27 @@ import android.util.Log;
 
 public class MySQLiteHelper extends SQLiteOpenHelper {
 	
+	private static final String DATABASE_NAME = "products.db";
+	private static final int DATABASE_VERSION = 1;
+	
 	public static final String TABLE_PRODUCTS = "products";
 	public static final String COLUMN_ID = "_id";
 	public static final String COLUMN_NAME = "name";
 	public static final String COLUMN_CHECKED = "checked";
+	
+	public static final String TABLE_HABITS = "habits";
+	public static final String COLUMN_INFO = "info";
 
-	private static final String DATABASE_NAME = "products.db";
-	private static final int DATABASE_VERSION = 1;
-
-	private static final String DATABASE_CREATE = "create table "
+	private static final String TABLE_PRODUCTS_CREATE = "create table "
 	      + TABLE_PRODUCTS + "(" + COLUMN_ID
 	      + " integer primary key autoincrement, " + COLUMN_NAME
 	      + " text not null, " + COLUMN_CHECKED
 	      + " int not null);";
+	
+	private static final String TABLE_HABITS_CREATE = 
+			"create table "+ TABLE_HABITS + "(" + COLUMN_ID
+	      + " integer primary key autoincrement, " + COLUMN_INFO
+	      + " text);";
 
 	public MySQLiteHelper(Context context) {
 		super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -29,7 +37,8 @@ public class MySQLiteHelper extends SQLiteOpenHelper {
 
 	@Override
 	public void onCreate(SQLiteDatabase database) {
-		database.execSQL(DATABASE_CREATE);
+		database.execSQL(TABLE_PRODUCTS_CREATE);
+		database.execSQL(TABLE_HABITS_CREATE);
 		
 		final int flattvID = 0;
 	    final String flattvName = "Flat Panel Televisions";
@@ -152,6 +161,13 @@ public class MySQLiteHelper extends SQLiteOpenHelper {
 		database.execSQL(insert_psvita);
 		database.execSQL(insert_usbcable);
 		database.execSQL(insert_ethernetcable);
+		
+		final int habitID = 0;
+	    final String habitInfo = "";
+	    
+	    final String insert_habit = "insert into " + TABLE_HABITS + " values ("+habitID+",'"+habitInfo+"')";
+	    
+	    database.execSQL(insert_habit);
 	}
 
 	@Override

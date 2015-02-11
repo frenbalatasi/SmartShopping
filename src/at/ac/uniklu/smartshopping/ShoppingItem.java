@@ -4,10 +4,12 @@ public class ShoppingItem {
 	
 	private String text;
 	private Boolean isChecked;
+	private String table;
 
 	public ShoppingItem() {
 		setText("");
 		setChecked(false);
+		setTable("");
 	}
 
 	public String getText() {
@@ -24,6 +26,14 @@ public class ShoppingItem {
 
 	public void setChecked(Boolean isChecked) {
 		this.isChecked = isChecked;
+	}
+
+	public String getTable() {
+		return table;
+	}
+
+	public void setTable(String table) {
+		this.table = table;
 	}
 
 }
